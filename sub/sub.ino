@@ -2,13 +2,13 @@
 #include <WiFi.h>
 
 // Structure for messages
-typedef struct struct_message {
+typedef struct message_format {
     char type[10];
-    char message[32];
+    char message[180];
     int status;
-    uint8_t target_mac[6];  // Target MAC address
+    uint8_t target_mac[6];
     bool reset;
-} struct_message;
+} message_format;
 
 esp_now_peer_info_t peerInfo = {};
 
@@ -17,7 +17,7 @@ bool isregister = false;
 bool reset = false;
 
 void registerWithCentral() {
-    struct_message RegData;
+    message_format RegData;
     strcpy(RegData.type, "Register");
     strcpy(RegData.message, "ESP32-CAM");
     RegData.status = 0;
@@ -39,31 +39,30 @@ void registerWithCentral() {
 }
 
 void sendUpdate(const uint8_t *mac_addr) {
-        // Handle status request and send response
-        struct_message response;
-        strcpy(response.type, "Update");
-        strcpy(response.message, "Spot 1 Status");
-        response.status = 1;  // Example status
-        memcpy(response.target_mac, mac_addr, 6);
-        memcpy(peerInfo.peer_addr, mac_addr, 6);
-        
-        if (esp_now_add_peer(&peerInfo) != ESP_OK) 
-        {
-            Serial.println("Failed to add peer to update the request");
-            return;
-        }
-        esp_err_t result = esp_now_send(mac_addr, (uint8_t *) &response, sizeof(response));
-        if (result == ESP_OK) {
-            Serial.println("Update Message Sent with success");
-        } 
-        else {
-            Serial.println("Error Updating to Central Node");
-        }
-        esp_now_del_peer(peerInfo.peer_addr);
+    message_format response;
+    strcpy(response.type, "Update");
+    strcpy(response.message, "Spot 1 Status");
+    response.status = 1;
+    memcpy(response.target_mac, mac_addr, 6);
+    memcpy(peerInfo.peer_addr, mac_addr, 6);
+    
+    if (esp_now_add_peer(&peerInfo) != ESP_OK) 
+    {
+        Serial.println("Failed to add peer to update the request");
+        return;
+    }
+    esp_err_t result = esp_now_send(mac_addr, (uint8_t *) &response, sizeof(response));
+    if (result == ESP_OK) {
+        Serial.println("Update Message Sent with success");
+    } 
+    else {
+        Serial.println("Error Updating to Central Node");
+    }
+    esp_now_del_peer(peerInfo.peer_addr);
 }
 
 void OnDataRecv(const uint8_t *mac_addr, const uint8_t *incomingData, int len) {
-    struct_message RecvData;
+    message_format RecvData;
     memcpy(&RecvData, incomingData, sizeof(RecvData));
     reset = RecvData.reset;
 
@@ -72,14 +71,8 @@ void OnDataRecv(const uint8_t *mac_addr, const uint8_t *incomingData, int len) {
         Serial.print(mac_addr[i], HEX);
         if (i < 5) Serial.print(":");
     }
-    Serial.println();
 
-    Serial.print("Type: ");
-    Serial.println(RecvData.type);
-    Serial.print("Message: ");
-    Serial.println(RecvData.message);
-    Serial.print("Status: ");
-    Serial.println(RecvData.status);
+    printStructMessage(RecvData);
 
     // Handle acknowledgment
     if (strcmp(RecvData.type, "ack") == 0) 
@@ -87,7 +80,7 @@ void OnDataRecv(const uint8_t *mac_addr, const uint8_t *incomingData, int len) {
         Serial.println("Registered with Central Node");
         isregister = true;
     }
-    if (strcmp(RecvData.type, "NoAckReq") == 0) 
+    else if (strcmp(RecvData.type, "NoAckReq") == 0) 
     {
         Serial.println("Already Registered with Central Node");
         isregister = true;
@@ -105,12 +98,29 @@ void OnDataRecv(const uint8_t *mac_addr, const uint8_t *incomingData, int len) {
     {
         registerWithCentral();
     }
-
 }
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
     Serial.print("Send Status: ");
     Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Success" : "Fail");
+}
+
+void printStructMessage(const message_format &msg) {
+    Serial.println();
+    Serial.print("Type: ");
+    Serial.println(msg.type);
+    Serial.print("Message: ");
+    Serial.println(msg.message);
+    Serial.print("Status: ");
+    Serial.println(msg.status);
+    Serial.print("Reset: ");
+    Serial.println(msg.reset);
+    Serial.print("Target MAC Address: ");
+    for (int i = 0; i < 6; i++) {
+        Serial.print(msg.target_mac[i], HEX);
+        if (i < 5) Serial.print(":");
+    }
+    Serial.println();
 }
 
 void setup() {
@@ -131,7 +141,7 @@ void setup() {
 
 void loop() {
     // Example: Send status update
-    struct_message myData;
+    message_format myData;
     if (Serial.available() > 0) {
         String input = Serial.readStringUntil('\n');
         strcpy(myData.type, "Update");
