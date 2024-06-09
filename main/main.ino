@@ -75,7 +75,7 @@ void disconnectSubNodes() {
     disconnectMessage.status = 0;
 
     for (int i = 0; i < peerCount; i++) {
-        memcpy(myData.target_mac, peerAddresses[i], 6);
+        memcpy(disconnectMessage.target_mac, peerAddresses[i], 6);
         memcpy(peerInfo.peer_addr, peerAddresses[i], 6);
     
         if (esp_now_add_peer(&peerInfo) != ESP_OK) 
@@ -109,7 +109,7 @@ void reconnectSubNodes() {
     reconnectMessage.status = 0;
 
     for (int i = 0; i < peerCount; i++) {
-        memcpy(myData.target_mac, peerAddresses[i], 6);
+        memcpy(reconnectMessage.target_mac, peerAddresses[i], 6);
         memcpy(peerInfo.peer_addr, peerAddresses[i], 6);
     
         if (esp_now_add_peer(&peerInfo) != ESP_OK) 
@@ -118,7 +118,7 @@ void reconnectSubNodes() {
             return;
         }
         
-        esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&reconnectMessage, sizeof(reconnectMessage));
+        esp_err_t result = esp_now_send(peerAddresses[i], (uint8_t *)&reconnectMessage, sizeof(reconnectMessage));
         if (result == ESP_OK) {
             // printStructMessage(discoveryMessage);
             addMessageToArray(reconnectMessage);
@@ -201,10 +201,10 @@ void sendDeviceToSocket(uint8_t clientID) {
     }
     macaddr += "]";
     jsonString += "{";
-        jsonString += "\"type\":\"" + "Device" + "\",";
+        jsonString += "\"type\":\"Device\",";
         jsonString += "\"message\":\"" + macaddr + "\",";
-        jsonString += "\"status\":" + "0" + ",";
-        jsonString += "\"reset\":" + reset + ",";
+        jsonString += "\"status\":0,";
+        jsonString += "\"reset\":" + String(reset ? "true" : "false") + ",";
         jsonString += "\"target_mac\":[FF:FF:FF:FF:FF:FF]";
     jsonString += "}}";
 
@@ -212,7 +212,7 @@ void sendDeviceToSocket(uint8_t clientID) {
 }
 
 void sendMessageToSocket(uint8_t clientID) {
-    String jsongString = serializeMessages();
+    String jsonString = serializeMessages();
     webSocket.sendTXT(clientID, jsonString);
 }
 
@@ -328,7 +328,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
         case WStype_TEXT:
             Serial.printf("Received: %s\n", payload);
             clientID = num;
-            break;~
+            break;
     }
 }
 
